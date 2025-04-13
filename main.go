@@ -24,7 +24,7 @@ func main() {
 func backgroundWorker() {
 
 	var ctx = context.Background()
-	//var LIMIT_KEY = 10
+	var WAIT_INTERVAL = (27 * time.Second)
 	var cursor uint64 = 0
 	var matchPattern = "transaction-callback-api:*" // Pattern to match keys
 	var count = int64(100)                          // Limit to 100 keys per scan
@@ -49,9 +49,9 @@ func backgroundWorker() {
 		log.Fatal("Failed to get generic database object:", err)
 	}
 	// Set connection pool settings
-	sqlDB.SetMaxOpenConns(100)                // Maximum number of open connections
-	sqlDB.SetMaxIdleConns(10)                 // Maximum number of idle connections
-	sqlDB.SetConnMaxLifetime(5 * time.Minute) // Connection max lifetime
+	sqlDB.SetMaxOpenConns(100)                 // Maximum number of open connections
+	sqlDB.SetMaxIdleConns(10)                  // Maximum number of idle connections
+	sqlDB.SetConnMaxLifetime(10 * time.Minute) // Connection max lifetime
 
 	var wg sync.WaitGroup
 
@@ -126,7 +126,7 @@ func backgroundWorker() {
 		// If the cursor is 0, then the scan is complete
 		if cursor == 0 {
 			fmt.Println("Next scan in 10 sec.")
-			time.Sleep(10 * time.Second)
+			time.Sleep(WAIT_INTERVAL)
 			//break
 		}
 	}
