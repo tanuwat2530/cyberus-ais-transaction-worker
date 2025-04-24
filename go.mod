@@ -1,4 +1,4 @@
-module cyberus/transaction-worker
+module cyberus/ais-transaction-worker
 
 go 1.22.2
 
