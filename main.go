@@ -26,8 +26,8 @@ func backgroundWorker() {
 	var ctx = context.Background()
 	var WAIT_INTERVAL = (27 * time.Second)
 	var cursor uint64 = 0
-	var matchPattern = "transaction-callback-api:*" // Pattern to match keys
-	var count = int64(100)                          // Limit to 100 keys per scan
+	var matchPattern = "ais-transaction-callback-api:*" // Pattern to match keys
+	var count = int64(100)                              // Limit to 100 keys per scan
 
 	fmt.Println("##### TRANSACTION WORKER RUNNING #####")
 	//config redis pool
@@ -78,57 +78,17 @@ func backgroundWorker() {
 					wg.Add(1)
 					go threadWorker(i, &wg, valJson, rdb, ctx, db)
 				}
-
 			}
-
 		}
-
-		//for { // for infinity loop
-		// Process only the first key found (if any)
-		// if len(keys) >= LIMIT_KEY {
-		// 	for i := 0; i < LIMIT_KEY; i++ {
-		// 		//fmt.Println("Send Key to Worker : ", keys[i]) // Print only the first key
-		// 		// Example: Get the value of the key (assuming it's a string)
-		// 		valJson, err := rdb.Get(ctx, keys[i]).Result()
-		// 		if err != nil {
-		// 			fmt.Println("Error getting value : ", err)
-
-		// 		} else {
-		// 			//fmt.Println("Value:", val)
-		// 			// Start multiple goroutines (threads)
-		// 			wg.Add(1)
-		// 			go threadWorker(i, &wg, valJson, rdb, ctx, db)
-		// 			rdb.Del(ctx, keys[i]).Result()
-		// 			// Wait for all goroutines to finish
-		// 		}
-		// 	}
-		// }
-
-		// if len(keys) > 0 {
-		// 	//fmt.Println("Send Key to Worker : ", keys[i]) // Print only the first key
-		// 	// Example: Get the value of the key (assuming it's a string)
-		// 	valJson, err := rdb.Get(ctx, keys[0]).Result()
-		// 	if err != nil {
-		// 		fmt.Println("Error getting value : ", err)
-
-		// 	} else {
-		// 		//fmt.Println("Value:", val)
-		// 		// Start multiple goroutines (threads)
-		// 		wg.Add(1)
-		// 		go threadWorker(0, &wg, valJson, rdb, ctx, db)
-		// 		rdb.Del(ctx, keys[0]).Result()
-		// 		// Wait for all goroutines to finish
-		// 	}
-		// }
-
 		// Update cursor for the next iteration
 		cursor = newCursor
 		// If the cursor is 0, then the scan is complete
 		if cursor == 0 {
-			fmt.Println("Next scan in 10 sec.")
+			fmt.Println("Wait for next scan")
 			time.Sleep(WAIT_INTERVAL)
 			//break
 		}
+		wg.Wait() // Block here until all goroutines call Done()
 	}
 	//}
 
@@ -149,7 +109,7 @@ func threadWorker(id int, wg *sync.WaitGroup, jsonString string, rdb *redis.Clie
 	}
 
 	//Table name on database
-	type transaction_logs struct {
+	type ais_transaction_logs struct {
 		ID            string `gorm:"primaryKey"`
 		Code          string `gorm:"column:code"`
 		Description   string `gorm:"column:description"`
@@ -188,7 +148,7 @@ func threadWorker(id int, wg *sync.WaitGroup, jsonString string, rdb *redis.Clie
 
 	//defer wg.Done() // Mark this goroutine as done when it exits
 
-	logEntry := transaction_logs{
+	logEntry := ais_transaction_logs{
 		ID:            transactionData.TranRef,
 		Code:          transactionData.Code,
 		Description:   transactionData.Desc,
@@ -205,7 +165,7 @@ func threadWorker(id int, wg *sync.WaitGroup, jsonString string, rdb *redis.Clie
 		return fmt.Errorf(errInsertDB.Error())
 	}
 
-	redis_set_key := "transaction-log-worker:" + transactionData.TranRef
+	redis_set_key := "ais-transaction-log-worker:" + transactionData.TranRef
 	ttl := 240 * time.Hour // expires in 10 day
 	// Set key with TTL
 	errSetRedis := rdb.Set(ctx, redis_set_key, jsonString, ttl).Err()
@@ -214,7 +174,7 @@ func threadWorker(id int, wg *sync.WaitGroup, jsonString string, rdb *redis.Clie
 		return fmt.Errorf("REDIS SET ERROR : " + errSetRedis.Error())
 	}
 
-	redis_del_key := "transaction-callback-api:" + transactionData.TranRef
+	redis_del_key := "ais-transaction-callback-api:" + transactionData.TranRef
 	rdb.Del(ctx, redis_del_key).Result()
 
 	wg.Done()
